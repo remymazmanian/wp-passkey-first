@@ -45,6 +45,10 @@ treat the feature as use-at-your-own-risk:
 Independent review is the gate before this feature loses the experimental
 label. If you review it, findings are very welcome.
 
+## Guide
+
+A full setup walkthrough lives at [remymazmanian.com/passkey-login-wordpress-guide](https://remymazmanian.com/passkey-login-wordpress-guide/).
+
 ## Requirements
 
 | | |
