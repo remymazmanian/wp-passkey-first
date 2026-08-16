@@ -2,7 +2,7 @@
 
 Passkey-first two-factor policy for WordPress administrators.
 
-WordPress already has good passkey support through two plugins: [Two Factor](https://wordpress.org/plugins/two-factor/) provides the 2FA framework, and [WebAuthn Provider for Two Factor](https://wordpress.org/plugins/two-factor-provider-webauthn/) adds passkeys as a method. What neither provides is **policy**: nothing makes the passkey the default prompt, nothing requires an administrator to enrol one, and the weaker fallbacks stay enabled forever.
+WordPress already has good passkey support through two plugins: [Two Factor](https://wordpress.org/plugins/two-factor/) provides the 2FA framework, and [WebAuthn Provider for Two Factor](https://wordpress.org/plugins/two-factor-provider-webauthn/) adds passkeys as a method. Installed on their own they are two more entries in the plugin list and no policy. What neither provides is **policy**: nothing makes the passkey the default prompt, nothing requires an administrator to enrol one, and the weaker fallbacks stay enabled forever.
 
 This plugin is that policy layer. It contains no cryptography and stores no credentials — the two plugins above keep doing that work. It decides *who must use what*.
 
@@ -24,12 +24,18 @@ This plugin is that policy layer. It contains no cryptography and stores no cred
 
 | | |
 |---|---|
-| WordPress | 6.0+ |
+| WordPress | 6.5+ |
 | PHP | 7.4+ |
-| Plugins | Two Factor, WebAuthn Provider for Two Factor (both active) |
+| Plugins | Two Factor, WebAuthn Provider for Two Factor |
 | HTTPS | required for WebAuthn in production |
 
-If the dependencies are missing the settings page says so and nothing is enforced.
+You install **one plugin**. Passkey First declares the other two through
+WordPress's native plugin dependencies (`Requires Plugins`), so core prompts
+for them at install time and will not activate Passkey First without them.
+They stay separate on disk deliberately: they contain the WebAuthn
+cryptography and receive their own security updates, which bundling would cut
+you off from. If they ever go missing the settings page says so and nothing is
+enforced.
 
 ## Settings
 
