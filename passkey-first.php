@@ -83,63 +83,139 @@ final class Passkey_First {
 
 	public function render_settings_page() {
 		$s = self::settings();
+		$deps = $this->dependencies_met();
+		$covered = get_users( array( 'role__in' => $s['roles'], 'fields' => 'all' ) );
+		$enrolled = 0;
+		foreach ( $covered as $u ) {
+			if ( $this->user_has_passkey( $u->ID ) ) {
+				$enrolled++;
+			}
+		}
 		?>
-		<div class="wrap">
-			<h1>Passkey First</h1>
-			<?php if ( ! $this->dependencies_met() ) : ?>
-				<div class="notice notice-error"><p>
-					<?php esc_html_e( 'Passkey First needs the "Two Factor" plugin and the "WebAuthn Provider for Two Factor" plugin, both active. Nothing is enforced until they are.', 'passkey-first' ); ?>
-				</p></div>
-			<?php endif; ?>
-			<form method="post" action="options.php">
-				<?php settings_fields( 'passkey_first' ); ?>
-				<table class="form-table" role="presentation">
-					<tr>
-						<th scope="row"><?php esc_html_e( 'Covered roles', 'passkey-first' ); ?></th>
-						<td>
+		<style>
+			.pf-wrap{max-width:960px;}
+			.pf-head{display:flex;align-items:baseline;gap:.6rem;margin:0 0 4px;}
+			.pf-head h1{padding:0;margin:0;}
+			.pf-ver{font-family:Menlo,Consolas,monospace;font-size:11px;color:#646970;border:1px solid #c3c4c7;border-radius:3px;padding:1px 6px;background:#fff;}
+			.pf-sub{color:#646970;margin:0 0 20px;max-width:66ch;}
+			.pf-grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(260px,1fr);gap:20px;align-items:start;}
+			@media(max-width:960px){.pf-grid{grid-template-columns:1fr;}}
+			.pf-card{background:#fff;border:1px solid #c3c4c7;border-radius:4px;box-shadow:0 1px 1px rgba(0,0,0,.04);}
+			.pf-card h2{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#1d2327;margin:0;padding:12px 16px;border-bottom:1px solid #f0f0f1;}
+			.pf-card .inside{padding:16px;}
+			.pf-field{padding:14px 0;border-bottom:1px solid #f0f0f1;}
+			.pf-field:first-child{padding-top:2px;}
+			.pf-field:last-child{border-bottom:0;padding-bottom:2px;}
+			.pf-field>strong{display:block;margin-bottom:6px;}
+			.pf-field .description{margin:6px 0 0;}
+			.pf-roles label{display:inline-block;margin:0 14px 4px 0;}
+			.pf-status{list-style:none;margin:0;padding:0;}
+			.pf-status li{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid #f0f0f1;font-size:13px;}
+			.pf-status li:last-child{border-bottom:0;}
+			.pf-ok{color:#00701a;font-weight:600;}
+			.pf-warn{color:#996800;font-weight:600;}
+			.pf-bad{color:#b32d2e;font-weight:600;}
+			.pf-users{width:100%;border-collapse:collapse;font-size:13px;}
+			.pf-users td{padding:7px 0;border-bottom:1px solid #f0f0f1;}
+			.pf-users tr:last-child td{border-bottom:0;}
+			.pf-users td:last-child{text-align:right;}
+			.pf-danger{border-left:3px solid #b32d2e;padding-left:13px;}
+		</style>
+		<div class="wrap pf-wrap">
+			<div class="pf-head">
+				<h1><?php esc_html_e( 'Passkey First', 'passkey-first' ); ?></h1>
+				<span class="pf-ver">0.1.0</span>
+			</div>
+			<p class="pf-sub"><?php esc_html_e( 'Policy layer over Two Factor and its WebAuthn provider: the passkey becomes the primary prompt, enrolment can be required per role, and weak fallbacks can be retired. This plugin stores no credentials.', 'passkey-first' ); ?></p>
+
+			<div class="pf-grid">
+				<form method="post" action="options.php" class="pf-card">
+					<h2><?php esc_html_e( 'Policy', 'passkey-first' ); ?></h2>
+					<div class="inside">
+						<?php settings_fields( 'passkey_first' ); ?>
+
+						<div class="pf-field pf-roles">
+							<strong><?php esc_html_e( 'Covered roles', 'passkey-first' ); ?></strong>
 							<?php foreach ( get_editable_roles() as $slug => $role ) : ?>
-								<label style="display:block">
+								<label>
 									<input type="checkbox" name="<?php echo esc_attr( self::OPTION ); ?>[roles][]" value="<?php echo esc_attr( $slug ); ?>" <?php checked( in_array( $slug, $s['roles'], true ) ); ?>>
 									<?php echo esc_html( translate_user_role( $role['name'] ) ); ?>
 								</label>
 							<?php endforeach; ?>
-							<p class="description"><?php esc_html_e( 'The policy applies to users holding any of these roles.', 'passkey-first' ); ?></p>
-						</td>
-					</tr>
-					<tr>
-						<th scope="row"><?php esc_html_e( 'Passkey is the primary prompt', 'passkey-first' ); ?></th>
-						<td><label>
-							<input type="checkbox" name="<?php echo esc_attr( self::OPTION ); ?>[passkey_primary]" value="1" <?php checked( $s['passkey_primary'] ); ?>>
-							<?php esc_html_e( 'When a covered user has a passkey enrolled, ask for it first at login.', 'passkey-first' ); ?>
-						</label></td>
-					</tr>
-					<tr>
-						<th scope="row"><?php esc_html_e( 'Require a passkey', 'passkey-first' ); ?></th>
-						<td>
+							<p class="description"><?php esc_html_e( 'The policy applies to users holding any of these roles. Everyone else is untouched.', 'passkey-first' ); ?></p>
+						</div>
+
+						<div class="pf-field">
+							<label>
+								<input type="checkbox" name="<?php echo esc_attr( self::OPTION ); ?>[passkey_primary]" value="1" <?php checked( $s['passkey_primary'] ); ?>>
+								<strong style="display:inline"><?php esc_html_e( 'Passkey is the primary prompt', 'passkey-first' ); ?></strong>
+							</label>
+							<p class="description"><?php esc_html_e( 'When a covered user has a passkey enrolled, the login asks for it first. Other methods stay reachable as fallbacks.', 'passkey-first' ); ?></p>
+						</div>
+
+						<div class="pf-field pf-danger">
 							<label>
 								<input type="checkbox" name="<?php echo esc_attr( self::OPTION ); ?>[require_passkey]" value="1" <?php checked( $s['require_passkey'] ); ?>>
-								<?php esc_html_e( 'Covered users must enrol a passkey. Until they do, wp-admin nags and, after the grace period, redirects them to their profile to enrol.', 'passkey-first' ); ?>
+								<strong style="display:inline"><?php esc_html_e( 'Require a passkey', 'passkey-first' ); ?></strong>
 							</label>
-							<p class="description"><?php esc_html_e( 'Enrol your own passkey before switching this on.', 'passkey-first' ); ?></p>
-						</td>
-					</tr>
-					<tr>
-						<th scope="row"><?php esc_html_e( 'Grace period', 'passkey-first' ); ?></th>
-						<td>
-							<input type="number" min="0" max="90" name="<?php echo esc_attr( self::OPTION ); ?>[grace_days]" value="<?php echo esc_attr( $s['grace_days'] ); ?>" class="small-text">
-							<?php esc_html_e( 'days before the redirect kicks in. 0 enforces immediately.', 'passkey-first' ); ?>
-						</td>
-					</tr>
-					<tr>
-						<th scope="row"><?php esc_html_e( 'Retire email codes', 'passkey-first' ); ?></th>
-						<td><label>
-							<input type="checkbox" name="<?php echo esc_attr( self::OPTION ); ?>[disable_email]" value="1" <?php checked( $s['disable_email'] ); ?>>
-							<?php esc_html_e( 'Remove the email-code fallback for covered users. Email 2FA is only as strong as the mailbox.', 'passkey-first' ); ?>
-						</label></td>
-					</tr>
-				</table>
-				<?php submit_button(); ?>
-			</form>
+							<p class="description"><?php esc_html_e( 'Covered users must enrol. During the grace period wp-admin nags; after it, admin screens redirect to the profile until enrolment is done. The profile page is never blocked. Enrol your own passkey before switching this on.', 'passkey-first' ); ?></p>
+							<p style="margin:10px 0 0;">
+								<label>
+									<?php esc_html_e( 'Grace period', 'passkey-first' ); ?>
+									<input type="number" min="0" max="90" name="<?php echo esc_attr( self::OPTION ); ?>[grace_days]" value="<?php echo esc_attr( $s['grace_days'] ); ?>" class="small-text">
+									<?php esc_html_e( 'days. 0 enforces immediately.', 'passkey-first' ); ?>
+								</label>
+							</p>
+						</div>
+
+						<div class="pf-field">
+							<label>
+								<input type="checkbox" name="<?php echo esc_attr( self::OPTION ); ?>[disable_email]" value="1" <?php checked( $s['disable_email'] ); ?>>
+								<strong style="display:inline"><?php esc_html_e( 'Retire email codes', 'passkey-first' ); ?></strong>
+							</label>
+							<p class="description"><?php esc_html_e( 'Removes the email-code fallback for covered users. Email 2FA is only as strong as the mailbox behind it.', 'passkey-first' ); ?></p>
+						</div>
+
+						<?php submit_button(); ?>
+					</div>
+				</form>
+
+				<div>
+					<div class="pf-card" style="margin-bottom:20px;">
+						<h2><?php esc_html_e( 'Status', 'passkey-first' ); ?></h2>
+						<div class="inside">
+							<ul class="pf-status">
+								<li><span><?php esc_html_e( 'Two Factor plugin', 'passkey-first' ); ?></span>
+									<?php echo class_exists( 'Two_Factor_Core' ) ? '<span class="pf-ok">' . esc_html__( 'active', 'passkey-first' ) . '</span>' : '<span class="pf-bad">' . esc_html__( 'missing', 'passkey-first' ) . '</span>'; ?></li>
+								<li><span><?php esc_html_e( 'WebAuthn provider', 'passkey-first' ); ?></span>
+									<?php echo $this->webauthn_provider_key() ? '<span class="pf-ok">' . esc_html__( 'active', 'passkey-first' ) . '</span>' : '<span class="pf-bad">' . esc_html__( 'missing', 'passkey-first' ) . '</span>'; ?></li>
+								<li><span><?php esc_html_e( 'Enforcement', 'passkey-first' ); ?></span>
+									<?php echo $s['require_passkey'] ? '<span class="pf-ok">' . esc_html__( 'on', 'passkey-first' ) . '</span>' : '<span class="pf-warn">' . esc_html__( 'off', 'passkey-first' ) . '</span>'; ?></li>
+								<li><span><?php esc_html_e( 'Enrolled', 'passkey-first' ); ?></span>
+									<span class="<?php echo $enrolled === count( $covered ) && $covered ? 'pf-ok' : 'pf-warn'; ?>"><?php echo esc_html( $enrolled . ' / ' . count( $covered ) ); ?></span></li>
+							</ul>
+						</div>
+					</div>
+
+					<div class="pf-card">
+						<h2><?php esc_html_e( 'Covered users', 'passkey-first' ); ?></h2>
+						<div class="inside">
+							<?php if ( $covered ) : ?>
+							<table class="pf-users">
+								<?php foreach ( $covered as $u ) : ?>
+								<tr>
+									<td><?php echo esc_html( $u->user_login ); ?></td>
+									<td><?php echo $this->user_has_passkey( $u->ID ) ? '<span class="pf-ok">' . esc_html__( 'passkey', 'passkey-first' ) . '</span>' : '<span class="pf-warn">' . esc_html__( 'none', 'passkey-first' ) . '</span>'; ?></td>
+								</tr>
+								<?php endforeach; ?>
+							</table>
+							<?php else : ?>
+							<p class="description"><?php esc_html_e( 'No users hold a covered role.', 'passkey-first' ); ?></p>
+							<?php endif; ?>
+						</div>
+					</div>
+				</div>
+			</div>
 		</div>
 		<?php
 	}
