@@ -216,6 +216,7 @@ final class Passkey_First {
 								<option value="required" <?php selected( $s['pw_mode'] ?? 'off', 'required' ); ?>><?php esc_html_e( 'Required — covered users with a passkey can no longer use their password on the login form', 'passkey-first' ); ?></option>
 							</select>
 							<p class="description"><?php esc_html_e( 'Built-in WebAuthn: sign in with a fingerprint, face, or device PIN instead of a password. Enrol passkeys on your profile first. "Required" leaves Application Passwords, REST and WP-CLI untouched, and the PF_ALLOW_PASSWORDS constant in wp-config.php is the break-glass that re-enables passwords.', 'passkey-first' ); ?></p>
+							<p class="description" style="color:#996800;"><strong><?php esc_html_e( 'Use at your own risk.', 'passkey-first' ); ?></strong> <?php esc_html_e( 'This implementation passes its test suite, fails closed, and follows the WebAuthn specification — but it has not yet had independent security review. "Optional" keeps password sign-in available and is the recommended setting until it has.', 'passkey-first' ); ?></p>
 						</div>
 
 						<div class="pf-field">
