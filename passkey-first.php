@@ -3,7 +3,7 @@
  * Plugin Name: Passkey First
  * Plugin URI: https://remymazmanian.com/
  * Description: Passkey-first two-factor policy for administrators. Coordinates the Two Factor plugin and its WebAuthn provider: makes the passkey the primary prompt, can require enrolment for chosen roles with a grace period, and can retire weaker fallbacks.
- * Version: 0.1.0
+ * Version: 0.2.0
  * Requires at least: 6.5
  * Requires PHP: 7.4
  * Requires Plugins: two-factor, two-factor-provider-webauthn
@@ -30,6 +30,9 @@
 
 
 defined( 'ABSPATH' ) || exit;
+
+require_once __DIR__ . '/includes/class-pf-webauthn.php';
+require_once __DIR__ . '/includes/class-pf-passwordless.php';
 
 final class Passkey_First {
 
@@ -65,6 +68,7 @@ final class Passkey_First {
 			'require_passkey' => 0,
 			'grace_days'      => 7,
 			'disable_email'   => 0,
+			'pw_mode'         => 'off',
 		);
 	}
 
@@ -88,6 +92,8 @@ final class Passkey_First {
 				$out['require_passkey'] = empty( $in['require_passkey'] ) ? 0 : 1;
 				$out['disable_email']   = empty( $in['disable_email'] ) ? 0 : 1;
 				$out['grace_days']      = max( 0, min( 90, (int) ( $in['grace_days'] ?? $d['grace_days'] ) ) );
+				$mode           = $in['pw_mode'] ?? 'off';
+				$out['pw_mode'] = in_array( $mode, array( 'off', 'optional', 'required' ), true ) ? $mode : 'off';
 				return $out;
 			},
 		) );
@@ -202,6 +208,16 @@ final class Passkey_First {
 							</p>
 						</div>
 
+						<div class="pf-field pf-danger">
+							<strong><?php esc_html_e( 'Passwordless sign-in', 'passkey-first' ); ?> <span style="font-weight:400;color:#996800;">(<?php esc_html_e( 'experimental', 'passkey-first' ); ?>)</span></strong>
+							<select name="<?php echo esc_attr( self::OPTION ); ?>[pw_mode]">
+								<option value="off" <?php selected( $s['pw_mode'] ?? 'off', 'off' ); ?>><?php esc_html_e( 'Off', 'passkey-first' ); ?></option>
+								<option value="optional" <?php selected( $s['pw_mode'] ?? 'off', 'optional' ); ?>><?php esc_html_e( 'Optional — "Sign in with a passkey" button appears on the login form', 'passkey-first' ); ?></option>
+								<option value="required" <?php selected( $s['pw_mode'] ?? 'off', 'required' ); ?>><?php esc_html_e( 'Required — covered users with a passkey can no longer use their password on the login form', 'passkey-first' ); ?></option>
+							</select>
+							<p class="description"><?php esc_html_e( 'Built-in WebAuthn: sign in with a fingerprint, face, or device PIN instead of a password. Enrol passkeys on your profile first. "Required" leaves Application Passwords, REST and WP-CLI untouched, and the PF_ALLOW_PASSWORDS constant in wp-config.php is the break-glass that re-enables passwords.', 'passkey-first' ); ?></p>
+						</div>
+
 						<div class="pf-field">
 							<label>
 								<input type="checkbox" name="<?php echo esc_attr( self::OPTION ); ?>[disable_email]" value="1" <?php checked( $s['disable_email'] ); ?>>
@@ -247,6 +263,8 @@ final class Passkey_First {
 									<?php echo class_exists( 'Two_Factor_Core' ) ? '<span class="pf-ok">' . esc_html__( 'active', 'passkey-first' ) . '</span>' : '<span class="pf-bad">' . esc_html__( 'missing', 'passkey-first' ) . '</span>'; ?></li>
 								<li><span><?php esc_html_e( 'WebAuthn provider', 'passkey-first' ); ?></span>
 									<?php echo $this->webauthn_provider_key() ? '<span class="pf-ok">' . esc_html__( 'active', 'passkey-first' ) . '</span>' : '<span class="pf-bad">' . esc_html__( 'missing', 'passkey-first' ) . '</span>'; ?></li>
+								<li><span><?php esc_html_e( 'Passwordless', 'passkey-first' ); ?></span>
+									<?php $pm = $s['pw_mode'] ?? 'off'; echo 'off' === $pm ? '<span class="pf-warn">' . esc_html__( 'off', 'passkey-first' ) . '</span>' : '<span class="pf-ok">' . esc_html( $pm ) . '</span>'; ?></li>
 								<li><span><?php esc_html_e( 'Enforcement', 'passkey-first' ); ?></span>
 									<?php echo $s['require_passkey'] ? '<span class="pf-ok">' . esc_html__( 'on', 'passkey-first' ) . '</span>' : '<span class="pf-warn">' . esc_html__( 'off', 'passkey-first' ) . '</span>'; ?></li>
 								<li><span><?php esc_html_e( 'Enrolled', 'passkey-first' ); ?></span>
@@ -309,6 +327,9 @@ final class Passkey_First {
 	}
 
 	public function user_has_passkey( $user_id ) {
+		if ( class_exists( 'PF_Passwordless' ) && PF_Passwordless::has_passkey( $user_id ) ) {
+			return true;
+		}
 		if ( ! class_exists( 'Two_Factor_Core' ) ) {
 			return false;
 		}
@@ -399,3 +420,4 @@ final class Passkey_First {
 }
 
 Passkey_First::instance();
+PF_Passwordless::instance();
