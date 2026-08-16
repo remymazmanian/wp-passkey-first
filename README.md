@@ -20,6 +20,31 @@ This plugin is that policy layer. It contains no cryptography and stores no cred
 - No REST or application-password interference: enforcement targets interactive wp-admin sessions only, so API clients using Application Passwords keep working.
 - Enforcement ships **off** by default. Enrol your own passkey, then switch it on.
 
+
+## Passwordless sign-in (experimental — use at your own risk)
+
+Version 0.2.0 adds built-in WebAuthn passwordless login: enrol passkeys on
+your profile, and covered users can sign in with a fingerprint, face, or
+device PIN — no password, and no username either, since discoverable
+credentials identify the account.
+
+**Its status, stated plainly:** the verifier follows the WebAuthn
+specification, fails closed on anything unexpected, and ships with a fixture
+test suite (`tests/`) covering registration, assertion and seven negative
+paths. It has **not yet had independent security review**. Until it has,
+treat the feature as use-at-your-own-risk:
+
+- Prefer **Optional** mode, which adds the passkey button while keeping
+  password sign-in available.
+- **Required** mode disables form passwords only for covered users who hold a
+  passkey. Application Passwords, REST, XML-RPC and WP-CLI are unaffected, and
+  `define( 'PF_ALLOW_PASSWORDS', true );` in `wp-config.php` re-enables
+  passwords instantly.
+- Enrol at least two passkeys before requiring them.
+
+Independent review is the gate before this feature loses the experimental
+label. If you review it, findings are very welcome.
+
 ## Requirements
 
 | | |
