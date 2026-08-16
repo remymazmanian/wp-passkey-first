@@ -79,7 +79,19 @@ final class Passkey_First {
 	}
 
 	public function add_settings_page() {
-		add_options_page( 'Passkey First', 'Passkey First', 'manage_options', 'passkey-first', array( $this, 'render_settings_page' ) );
+		$hook = add_options_page( 'Passkey First', 'Passkey First', 'manage_options', 'passkey-first', array( $this, 'render_settings_page' ) );
+		add_action( 'load-' . $hook, array( $this, 'help_tab' ) );
+	}
+
+	public function help_tab() {
+		get_current_screen()->add_help_tab( array(
+			'id'      => 'pf-help',
+			'title'   => __( 'How it works', 'passkey-first' ),
+			'content' =>
+				'<p>' . esc_html__( 'Passkey First is policy only. Credentials are created and verified by the Two Factor plugin and its WebAuthn provider; this plugin decides who must use them.', 'passkey-first' ) . '</p>' .
+				'<p>' . esc_html__( 'Rollout order matters: enrol your own passkey first, confirm every covered user shows "passkey" in the covered-users table, and only then switch on "Require a passkey". Enforcement never blocks the profile page, so an unenrolled user can always reach the fix.', 'passkey-first' ) . '</p>' .
+				'<p>' . esc_html__( 'API clients authenticating with Application Passwords are unaffected: enforcement only touches interactive wp-admin sessions.', 'passkey-first' ) . '</p>',
+		) );
 	}
 
 	public function render_settings_page() {
@@ -121,6 +133,12 @@ final class Passkey_First {
 			.pf-users tr:last-child td{border-bottom:0;}
 			.pf-users td:last-child{text-align:right;}
 			.pf-danger{border-left:3px solid #b32d2e;padding-left:13px;}
+			.pf-steps{margin:0;padding:0 0 0 2px;list-style:none;counter-reset:pf;}
+			.pf-steps li{counter-increment:pf;padding:6px 0 6px 30px;position:relative;font-size:13px;border-bottom:1px solid #f0f0f1;}
+			.pf-steps li:last-child{border-bottom:0;}
+			.pf-steps li::before{content:counter(pf);position:absolute;left:0;top:6px;width:20px;height:20px;border-radius:50%;text-align:center;line-height:20px;font-size:11px;font-weight:600;background:#f0f0f1;color:#646970;}
+			.pf-step-done{color:#646970;text-decoration:line-through;text-decoration-color:#c3c4c7;}
+			.pf-step-done::before{content:"\2713" !important;background:#00701a !important;color:#fff !important;}
 		</style>
 		<div class="wrap pf-wrap">
 			<div class="pf-head">
@@ -182,6 +200,30 @@ final class Passkey_First {
 				</form>
 
 				<div>
+					<div class="pf-card" style="margin-bottom:20px;">
+						<h2><?php esc_html_e( 'Setup', 'passkey-first' ); ?></h2>
+						<div class="inside">
+							<?php
+							$me_enrolled = $this->user_has_passkey( get_current_user_id() );
+							$all_enrolled = $covered && $enrolled === count( $covered );
+							$steps = array(
+								array( $deps, __( 'Dependencies active', 'passkey-first' ), '' ),
+								array( $me_enrolled, __( 'Enrol your own passkey', 'passkey-first' ), admin_url( 'profile.php#two-factor-options' ) ),
+								array( $all_enrolled, __( 'Every covered user enrolled', 'passkey-first' ), '' ),
+								array( (bool) $s['require_passkey'], __( 'Switch on "Require a passkey"', 'passkey-first' ), '' ),
+							);
+							echo '<ol class="pf-steps">';
+							foreach ( $steps as $st ) {
+								echo '<li class="' . ( $st[0] ? 'pf-step-done' : 'pf-step-open' ) . '">';
+								echo $st[2] && ! $st[0] ? '<a href="' . esc_url( $st[2] ) . '">' . esc_html( $st[1] ) . '</a>' : esc_html( $st[1] );
+								echo '</li>';
+							}
+							echo '</ol>';
+							?>
+							<p class="description"><?php esc_html_e( 'Do these in order. Steps tick themselves off as the site reaches them.', 'passkey-first' ); ?></p>
+						</div>
+					</div>
+
 					<div class="pf-card" style="margin-bottom:20px;">
 						<h2><?php esc_html_e( 'Status', 'passkey-first' ); ?></h2>
 						<div class="inside">
