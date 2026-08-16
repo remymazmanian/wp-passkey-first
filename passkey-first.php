@@ -4,8 +4,9 @@
  * Plugin URI: https://remymazmanian.com/
  * Description: Passkey-first two-factor policy for administrators. Coordinates the Two Factor plugin and its WebAuthn provider: makes the passkey the primary prompt, can require enrolment for chosen roles with a grace period, and can retire weaker fallbacks.
  * Version: 0.1.0
- * Requires at least: 6.0
+ * Requires at least: 6.5
  * Requires PHP: 7.4
+ * Requires Plugins: two-factor, two-factor-provider-webauthn
  * Author: Remy Mazmanian
  * Author URI: https://remymazmanian.com/
  * License: GPL-2.0-or-later
