@@ -8,6 +8,10 @@
  * GPL-2.0-or-later. See LICENSE.
  */
 
+if ( 'cli' !== PHP_SAPI ) {
+	exit; // command-line only
+}
+
 final class PF_Test_Bytes {
 	public $bin;
 	public function __construct( $bin ) {

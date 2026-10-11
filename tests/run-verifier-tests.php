@@ -1,5 +1,8 @@
 <?php
 // Standalone verifier test, no WordPress needed: php tests/run-verifier-tests.php
+if ( 'cli' !== PHP_SAPI ) {
+	exit; // command-line only
+}
 define( 'ABSPATH', '/' );
 require __DIR__ . '/../includes/class-pf-webauthn.php';
 require __DIR__ . '/lib/soft-authenticator.php';

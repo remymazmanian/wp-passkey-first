@@ -9,6 +9,10 @@
  * GPL-2.0-or-later. See LICENSE.
  */
 
+if ( 'cli' !== PHP_SAPI ) {
+	exit; // command-line only
+}
+
 require __DIR__ . '/../lib/soft-authenticator.php';
 
 $base   = rtrim( getenv( 'PF_BASE' ) ?: 'http://localhost:8088', '/' );
