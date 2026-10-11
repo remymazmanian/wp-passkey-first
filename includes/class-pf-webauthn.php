@@ -3,21 +3,31 @@
  * Plain-PHP WebAuthn verifier for Passkey First.
  *
  * Copyright (C) 2026 Remy Mazmanian
- * GPL-2.0-or-later — see LICENSE.
+ * GPL-2.0-or-later. See LICENSE.
  *
  * Scope is deliberate: attestation format "none" (we keep the public key,
  * we do not judge the authenticator), definite-length CBOR only, ES256 and
- * RS256 only. Signature verification runs on OpenSSL. Every parse failure
- * throws; callers treat any exception as a hard verification failure.
+ * RS256 (2048-bit or larger) only. Signature verification runs on OpenSSL.
+ * Every parse failure throws; callers treat any exception as a hard
+ * verification failure.
  */
 
 defined( 'ABSPATH' ) || exit;
 
 final class PF_WebAuthn {
 
+	/** Deepest CBOR nesting accepted. A COSE key in an attestation object needs 3. */
+	const CBOR_MAX_DEPTH = 8;
+
+	/** Smallest RSA modulus accepted, in bytes (2048 bits). */
+	const RSA_MIN_BYTES = 256;
+
 	/* ------------------------------------------------ base64url */
 
 	public static function b64u_decode( $s ) {
+		if ( ! is_string( $s ) || ! preg_match( '/^[A-Za-z0-9_-]*$/', $s ) ) {
+			throw new InvalidArgumentException( 'bad base64url' );
+		}
 		$s = strtr( $s, '-_', '+/' );
 		$d = base64_decode( $s . str_repeat( '=', ( 4 - strlen( $s ) % 4 ) % 4 ), true );
 		if ( false === $d ) {
@@ -32,36 +42,43 @@ final class PF_WebAuthn {
 
 	/* ------------------------------------------------ CBOR (strict subset) */
 
+	/** Returns $n bytes at $off and advances $off, or throws if the input is shorter. */
+	private static function take( $bin, &$off, $n ) {
+		if ( $n < 0 || $off + $n > strlen( $bin ) ) {
+			throw new InvalidArgumentException( 'cbor: truncated' );
+		}
+		$out  = substr( $bin, $off, $n );
+		$off += $n;
+		return $out;
+	}
+
 	/**
 	 * Decodes one CBOR item starting at $off; advances $off.
 	 * Definite lengths only. Majors: uint, negint, bstr, tstr, array, map.
+	 * Nesting is capped at CBOR_MAX_DEPTH so hostile input can't exhaust the stack.
 	 */
-	public static function cbor_decode( $bin, &$off ) {
-		if ( $off >= strlen( $bin ) ) {
-			throw new InvalidArgumentException( 'cbor: eof' );
+	public static function cbor_decode( $bin, &$off, $depth = 0 ) {
+		if ( $depth > self::CBOR_MAX_DEPTH ) {
+			throw new InvalidArgumentException( 'cbor: nested too deeply' );
 		}
-		$ib    = ord( $bin[ $off++ ] );
+		$ib    = ord( self::take( $bin, $off, 1 ) );
 		$major = $ib >> 5;
 		$info  = $ib & 0x1f;
 
 		if ( $info < 24 ) {
 			$len = $info;
 		} elseif ( 24 === $info ) {
-			$len = ord( $bin[ $off++ ] );
+			$len = ord( self::take( $bin, $off, 1 ) );
 		} elseif ( 25 === $info ) {
-			$len = unpack( 'n', substr( $bin, $off, 2 ) )[1];
-			$off += 2;
+			$len = unpack( 'n', self::take( $bin, $off, 2 ) )[1];
 		} elseif ( 26 === $info ) {
-			$len = unpack( 'N', substr( $bin, $off, 4 ) )[1];
-			$off += 4;
+			$len = unpack( 'N', self::take( $bin, $off, 4 ) )[1];
 		} elseif ( 27 === $info ) {
-			$hi = unpack( 'N', substr( $bin, $off, 4 ) )[1];
-			$lo = unpack( 'N', substr( $bin, $off + 4, 4 ) )[1];
-			$off += 8;
-			if ( $hi ) {
+			$both = unpack( 'Nhi/Nlo', self::take( $bin, $off, 8 ) );
+			if ( $both['hi'] ) {
 				throw new InvalidArgumentException( 'cbor: length too large' );
 			}
-			$len = $lo;
+			$len = $both['lo'];
 		} else {
 			throw new InvalidArgumentException( 'cbor: indefinite length unsupported' );
 		}
@@ -73,25 +90,23 @@ final class PF_WebAuthn {
 				return -1 - $len;
 			case 2:
 			case 3:
-				if ( $off + $len > strlen( $bin ) ) {
-					throw new InvalidArgumentException( 'cbor: truncated string' );
-				}
-				$v    = substr( $bin, $off, $len );
-				$off += $len;
-				return $v;
+				return self::take( $bin, $off, $len );
 			case 4:
 				$out = array();
 				for ( $i = 0; $i < $len; $i++ ) {
-					$out[] = self::cbor_decode( $bin, $off );
+					$out[] = self::cbor_decode( $bin, $off, $depth + 1 );
 				}
 				return $out;
 			case 5:
 				$out = array();
 				for ( $i = 0; $i < $len; $i++ ) {
-					$k = self::cbor_decode( $bin, $off );
-					$v = self::cbor_decode( $bin, $off );
+					$k = self::cbor_decode( $bin, $off, $depth + 1 );
+					$v = self::cbor_decode( $bin, $off, $depth + 1 );
 					if ( ! is_int( $k ) && ! is_string( $k ) ) {
 						throw new InvalidArgumentException( 'cbor: bad map key' );
+					}
+					if ( array_key_exists( $k, $out ) ) {
+						throw new InvalidArgumentException( 'cbor: duplicate map key' );
 					}
 					$out[ $k ] = $v;
 				}
@@ -149,8 +164,11 @@ final class PF_WebAuthn {
 			);
 			$spki  = self::der_seq( $algid . self::der_bits( $point ) );
 		} elseif ( 3 === $kty && -257 === $alg ) { // RSA / RS256
-			if ( empty( $key[-1] ) || empty( $key[-2] ) ) {
+			if ( ! is_string( $key[-1] ?? null ) || ! is_string( $key[-2] ?? null ) || '' === ltrim( $key[-2], "\0" ) ) {
 				throw new InvalidArgumentException( 'cose: bad RSA key' );
+			}
+			if ( strlen( ltrim( $key[-1], "\0" ) ) < self::RSA_MIN_BYTES ) {
+				throw new InvalidArgumentException( 'cose: RSA keys must be at least 2048 bits' );
 			}
 			$rsa   = self::der_seq( self::der_uint( $key[-1] ) . self::der_uint( $key[-2] ) );
 			$algid = self::der_seq( "\x06\x09\x2a\x86\x48\x86\xf7\x0d\x01\x01\x01" . "\x05\x00" ); // rsaEncryption, NULL
@@ -190,9 +208,16 @@ final class PF_WebAuthn {
 			if ( strlen( $ad ) < 55 + $id_len ) {
 				throw new InvalidArgumentException( 'authData: truncated credential id' );
 			}
+			if ( $id_len < 16 || $id_len > 1023 ) {
+				throw new InvalidArgumentException( 'authData: credential id length out of range' );
+			}
 			$out['cred_id'] = substr( $ad, 55, $id_len );
 			$off            = 55 + $id_len;
 			$out['cose']    = self::cbor_decode( $ad, $off );
+			// Extension data may follow only when the ED flag says so.
+			if ( ! ( $out['flags'] & 0x80 ) && strlen( $ad ) !== $off ) {
+				throw new InvalidArgumentException( 'authData: unexpected trailing bytes' );
+			}
 		}
 		return $out;
 	}
@@ -212,6 +237,10 @@ final class PF_WebAuthn {
 		}
 		if ( ! in_array( $cd['origin'] ?? '', $origins, true ) ) {
 			throw new InvalidArgumentException( 'clientData: origin not allowed' );
+		}
+		// Passkeys are only used on this site's own pages, never inside another site's frame.
+		if ( true === ( $cd['crossOrigin'] ?? false ) || isset( $cd['topOrigin'] ) ) {
+			throw new InvalidArgumentException( 'clientData: cross-origin use not allowed' );
 		}
 	}
 
@@ -238,8 +267,12 @@ final class PF_WebAuthn {
 		self::check_client_data( $cdj, 'webauthn.create', $challenge_b64u, $origins );
 
 		$off = 0;
-		$att = self::cbor_decode( self::b64u_decode( $att_b64u ), $off );
-		if ( ! is_array( $att ) || empty( $att['authData'] ) ) {
+		$raw = self::b64u_decode( $att_b64u );
+		$att = self::cbor_decode( $raw, $off );
+		if ( strlen( $raw ) !== $off ) {
+			throw new InvalidArgumentException( 'attestation: unexpected trailing bytes' );
+		}
+		if ( ! is_array( $att ) || empty( $att['authData'] ) || ! is_string( $att['authData'] ) ) {
 			throw new InvalidArgumentException( 'attestation: malformed object' );
 		}
 		$parsed = self::parse_auth_data( $att['authData'], true );
@@ -272,9 +305,12 @@ final class PF_WebAuthn {
 			throw new InvalidArgumentException( 'signature: verification failed' );
 		}
 
+		// WebAuthn L2 7.2 step 21: once either counter is non-zero it must strictly
+		// increase. Authenticators that never count (both zero) are accepted.
 		$new = $parsed['count'];
-		if ( $new > 0 && (int) $stored['count'] > 0 && $new <= (int) $stored['count'] ) {
-			throw new InvalidArgumentException( 'signature: sign count regression (possible cloned credential)' );
+		$old = (int) $stored['count'];
+		if ( ( $new > 0 || $old > 0 ) && $new <= $old ) {
+			throw new InvalidArgumentException( 'signature: sign count did not increase (possible cloned credential)' );
 		}
 		return $new;
 	}

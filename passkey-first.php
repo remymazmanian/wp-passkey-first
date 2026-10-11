@@ -2,8 +2,8 @@
 /**
  * Plugin Name: Passkey First
  * Plugin URI: https://remymazmanian.com/
- * Description: Passkey-first two-factor policy for administrators. Coordinates the Two Factor plugin and its WebAuthn provider: makes the passkey the primary prompt, can require enrolment for chosen roles with a grace period, and can retire weaker fallbacks.
- * Version: 0.2.0
+ * Description: Passkey-first two-factor policy for administrators. Coordinates the Two Factor plugin and its WebAuthn provider: makes the passkey the primary prompt, can require enrolment for chosen roles with a grace period, and can retire weaker fallbacks. Optional passwordless sign-in with passkeys.
+ * Version: 0.3.0
  * Requires at least: 6.5
  * Requires PHP: 7.4
  * Requires Plugins: two-factor, two-factor-provider-webauthn
@@ -30,6 +30,8 @@
 
 
 defined( 'ABSPATH' ) || exit;
+
+define( 'PF_VERSION', '0.3.0' );
 
 require_once __DIR__ . '/includes/class-pf-webauthn.php';
 require_once __DIR__ . '/includes/class-pf-passwordless.php';
@@ -109,7 +111,7 @@ final class Passkey_First {
 			'id'      => 'pf-help',
 			'title'   => __( 'How it works', 'passkey-first' ),
 			'content' =>
-				'<p>' . esc_html__( 'Passkey First is policy only. Credentials are created and verified by the Two Factor plugin and its WebAuthn provider; this plugin decides who must use them.', 'passkey-first' ) . '</p>' .
+				'<p>' . esc_html__( 'The two-factor policy is coordination only: two-factor passkeys are created and verified by the Two Factor plugin and its WebAuthn provider, and this plugin decides who must use them. Passwordless sign-in, when switched on, is built in: those passkeys are verified and stored by this plugin.', 'passkey-first' ) . '</p>' .
 				'<p>' . esc_html__( 'Rollout order matters: enrol your own passkey first, confirm every covered user shows "passkey" in the covered-users table, and only then switch on "Require a passkey". Enforcement never blocks the profile page, so an unenrolled user can always reach the fix.', 'passkey-first' ) . '</p>' .
 				'<p>' . esc_html__( 'API clients authenticating with Application Passwords are unaffected: enforcement only touches interactive wp-admin sessions.', 'passkey-first' ) . '</p>',
 		) );
@@ -164,9 +166,9 @@ final class Passkey_First {
 		<div class="wrap pf-wrap">
 			<div class="pf-head">
 				<h1><?php esc_html_e( 'Passkey First', 'passkey-first' ); ?></h1>
-				<span class="pf-ver">0.1.0</span>
+				<span class="pf-ver"><?php echo esc_html( PF_VERSION ); ?></span>
 			</div>
-			<p class="pf-sub"><?php esc_html_e( 'Policy layer over Two Factor and its WebAuthn provider: the passkey becomes the primary prompt, enrolment can be required per role, and weak fallbacks can be retired. This plugin stores no credentials.', 'passkey-first' ); ?></p>
+			<p class="pf-sub"><?php esc_html_e( 'Policy layer over Two Factor and its WebAuthn provider: the passkey becomes the primary prompt, enrolment can be required per role, and weak fallbacks can be retired. With passwordless sign-in off, this plugin stores no credentials.', 'passkey-first' ); ?></p>
 
 			<div class="pf-grid">
 				<form method="post" action="options.php" class="pf-card">
@@ -212,11 +214,11 @@ final class Passkey_First {
 							<strong><?php esc_html_e( 'Passwordless sign-in', 'passkey-first' ); ?> <span style="font-weight:400;color:#996800;">(<?php esc_html_e( 'experimental', 'passkey-first' ); ?>)</span></strong>
 							<select name="<?php echo esc_attr( self::OPTION ); ?>[pw_mode]">
 								<option value="off" <?php selected( $s['pw_mode'] ?? 'off', 'off' ); ?>><?php esc_html_e( 'Off', 'passkey-first' ); ?></option>
-								<option value="optional" <?php selected( $s['pw_mode'] ?? 'off', 'optional' ); ?>><?php esc_html_e( 'Optional — "Sign in with a passkey" button appears on the login form', 'passkey-first' ); ?></option>
-								<option value="required" <?php selected( $s['pw_mode'] ?? 'off', 'required' ); ?>><?php esc_html_e( 'Required — covered users with a passkey can no longer use their password on the login form', 'passkey-first' ); ?></option>
+								<option value="optional" <?php selected( $s['pw_mode'] ?? 'off', 'optional' ); ?>><?php esc_html_e( 'Optional: a "Sign in with a passkey" button appears on the login form', 'passkey-first' ); ?></option>
+								<option value="required" <?php selected( $s['pw_mode'] ?? 'off', 'required' ); ?>><?php esc_html_e( 'Required: covered users with a passkey can no longer use their password on the login form', 'passkey-first' ); ?></option>
 							</select>
-							<p class="description"><?php esc_html_e( 'Built-in WebAuthn: sign in with a fingerprint, face, or device PIN instead of a password. Enrol passkeys on your profile first. "Required" leaves Application Passwords, REST and WP-CLI untouched, and the PF_ALLOW_PASSWORDS constant in wp-config.php is the break-glass that re-enables passwords.', 'passkey-first' ); ?></p>
-							<p class="description" style="color:#996800;"><strong><?php esc_html_e( 'Use at your own risk.', 'passkey-first' ); ?></strong> <?php esc_html_e( 'This implementation passes its test suite, fails closed, and follows the WebAuthn specification — but it has not yet had independent security review. "Optional" keeps password sign-in available and is the recommended setting until it has.', 'passkey-first' ); ?></p>
+							<p class="description"><?php esc_html_e( 'Built-in WebAuthn for users in the covered roles: sign in with a fingerprint, face, or device PIN instead of a password. A passkey sign-in counts as two-factor. Enrol passkeys on your profile first. "Off" disables passkey sign-in completely, including passkeys already enrolled. "Required" leaves Application Passwords, REST and WP-CLI untouched, and the PF_ALLOW_PASSWORDS constant in wp-config.php is the break-glass that re-enables passwords.', 'passkey-first' ); ?></p>
+							<p class="description" style="color:#996800;"><strong><?php esc_html_e( 'Use at your own risk.', 'passkey-first' ); ?></strong> <?php esc_html_e( 'This implementation follows the WebAuthn specification, fails closed, and is tested end to end, but it has not yet had an independent security audit. "Optional" keeps password sign-in available and is the recommended setting until it has.', 'passkey-first' ); ?></p>
 						</div>
 
 						<div class="pf-field">
@@ -327,14 +329,23 @@ final class Passkey_First {
 		return (bool) array_intersect( self::settings()['roles'], (array) $user->roles );
 	}
 
+	/**
+	 * Whether the user holds a passkey that satisfies the policy: a two-factor
+	 * passkey, or a passwordless passkey while passwordless sign-in is on.
+	 */
 	public function user_has_passkey( $user_id ) {
-		if ( class_exists( 'PF_Passwordless' ) && PF_Passwordless::has_passkey( $user_id ) ) {
+		if ( class_exists( 'PF_Passwordless' ) && PF_Passwordless::enabled() && PF_Passwordless::has_passkey( $user_id ) ) {
 			return true;
 		}
+		return $this->user_has_2fa_passkey( $user_id );
+	}
+
+	/** Whether the Two Factor plugin's WebAuthn method is enabled for the user. */
+	public function user_has_2fa_passkey( $user_id ) {
 		if ( ! class_exists( 'Two_Factor_Core' ) ) {
 			return false;
 		}
-		$key = $this->webauthn_provider_key();
+		$key     = $this->webauthn_provider_key();
 		$enabled = Two_Factor_Core::get_enabled_providers_for_user( get_userdata( $user_id ) );
 		return $key && in_array( $key, (array) $enabled, true );
 	}
@@ -344,7 +355,8 @@ final class Passkey_First {
 	/** Ask for the passkey first when one is enrolled. */
 	public function primary_provider( $provider, $user_id ) {
 		$s = self::settings();
-		if ( $s['passkey_primary'] && $this->user_is_covered( $user_id ) && $this->user_has_passkey( $user_id ) ) {
+		// Only point Two Factor at its own WebAuthn method, never at a passwordless passkey it can't verify.
+		if ( $s['passkey_primary'] && $this->user_is_covered( $user_id ) && $this->user_has_2fa_passkey( $user_id ) ) {
 			return $this->webauthn_provider_key();
 		}
 		return $provider;
@@ -406,13 +418,14 @@ final class Passkey_First {
 		if ( $left > 0 ) {
 			printf(
 				/* translators: 1: profile URL, 2: human time */
-				wp_kses( __( 'This site requires administrators to sign in with a passkey. <a href="%1$s">Enrol one on your profile</a> — enforcement begins in %2$s.', 'passkey-first' ), array( 'a' => array( 'href' => array() ) ) ),
+				wp_kses( __( 'This site requires your account to sign in with a passkey. <a href="%1$s">Enrol one on your profile</a>. Enforcement begins in %2$s.', 'passkey-first' ), array( 'a' => array( 'href' => array() ) ) ),
 				esc_url( admin_url( 'profile.php#two-factor-options' ) ),
 				esc_html( human_time_diff( time(), $deadline ) )
 			);
 		} else {
 			printf(
-				wp_kses( __( 'This site requires administrators to sign in with a passkey. <a href="%s">Enrol one on your profile</a> to regain full admin access.', 'passkey-first' ), array( 'a' => array( 'href' => array() ) ) ),
+				/* translators: %s: profile URL */
+				wp_kses( __( 'This site requires your account to sign in with a passkey. <a href="%s">Enrol one on your profile</a> to regain full admin access.', 'passkey-first' ), array( 'a' => array( 'href' => array() ) ) ),
 				esc_url( admin_url( 'profile.php#two-factor-options' ) )
 			);
 		}

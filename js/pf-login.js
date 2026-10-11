@@ -1,4 +1,4 @@
-/* Passkey First — passwordless sign-in. GPL-2.0-or-later. */
+/* Passkey First: passwordless sign-in. GPL-2.0-or-later. */
 (function(){
   'use strict';
   function b64uToBuf(s){s=s.replace(/-/g,'+').replace(/_/g,'/');var b=atob(s+'==='.slice((s.length+3)%4)),a=new Uint8Array(b.length);for(var i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return a.buffer;}
@@ -13,17 +13,20 @@
   btn.addEventListener('click',function(){
     msg.textContent='';
     post('pf_login_options',{}).then(function(res){
-      if(!res.success)throw new Error('could not start');
+      if(!res.success)throw new Error((res.data&&res.data.length<120?res.data:null)||'Could not start.');
       var pk=res.data.publicKey;
       pk.challenge=b64uToBuf(pk.challenge);
       return navigator.credentials.get({publicKey:pk}).then(function(cred){
+        var remember=document.getElementById('rememberme'),redirect=document.querySelector('input[name="redirect_to"]');
         return post('pf_login_finish',{
           chal_id:res.data.chal_id,
           id:bufToB64u(cred.rawId),
           ad:bufToB64u(cred.response.authenticatorData),
           cdj:bufToB64u(cred.response.clientDataJSON),
           sig:bufToB64u(cred.response.signature),
-          uh:cred.response.userHandle?bufToB64u(cred.response.userHandle):''
+          uh:cred.response.userHandle?bufToB64u(cred.response.userHandle):'',
+          remember:remember&&remember.checked?'1':'',
+          redirect_to:redirect?redirect.value:''
         });
       });
     }).then(function(res){

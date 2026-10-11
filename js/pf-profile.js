@@ -1,4 +1,4 @@
-/* Passkey First — profile enrolment. GPL-2.0-or-later. */
+/* Passkey First: profile enrolment. GPL-2.0-or-later. */
 (function(){
   'use strict';
   function b64uToBuf(s){s=s.replace(/-/g,'+').replace(/_/g,'/');var b=atob(s+'==='.slice((s.length+3)%4)),a=new Uint8Array(b.length);for(var i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return a.buffer;}
@@ -8,9 +8,8 @@
     return fetch(pfCfg.ajax,{method:'POST',credentials:'same-origin',body:body}).then(function(r){return r.json();});
   }
   var btn=document.getElementById('pf-enrol'),msg=document.getElementById('pf-enrol-msg');
-  if(!btn)return;
-  if(!window.PublicKeyCredential){btn.disabled=true;msg.textContent='This browser does not support passkeys.';return;}
-  btn.addEventListener('click',function(){
+  if(btn&&!window.PublicKeyCredential){btn.disabled=true;msg.textContent='This browser does not support passkeys.';btn=null;}
+  if(btn)btn.addEventListener('click',function(){
     var label=prompt('Name this passkey (e.g. "iPhone", "MacBook"):','')||'';
     msg.textContent='Waiting for your authenticator…';
     post('pf_reg_options',{}).then(function(res){
@@ -35,7 +34,9 @@
   document.querySelectorAll('.pf-revoke').forEach(function(b){
     b.addEventListener('click',function(){
       if(!confirm('Remove this passkey? You will no longer be able to sign in with it.'))return;
-      post('pf_revoke',{cred_id:b.dataset.id}).then(function(){location.reload();});
+      post('pf_revoke',{cred_id:b.dataset.id,user_id:pfCfg.userId}).then(function(res){
+        if(res&&res.success){location.reload();}else{alert((res&&res.data)||'Could not remove the passkey.');}
+      });
     });
   });
 })();
