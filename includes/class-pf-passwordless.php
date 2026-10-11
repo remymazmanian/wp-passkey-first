@@ -482,8 +482,9 @@ final class PF_Passwordless {
 			return;
 		}
 		?>
+		<?php // The login stylesheet floats .button-primary right; without float:none the wrap collapses and the Log In button overlaps this one. ?>
 		<div id="pf-login-wrap" style="margin:0 0 16px;">
-			<button type="button" class="button button-primary button-large" id="pf-login" style="width:100%;">
+			<button type="button" class="button button-primary button-large" id="pf-login" style="width:100%;float:none;">
 				<?php esc_html_e( 'Sign in with a passkey', 'passkey-first' ); ?>
 			</button>
 			<div id="pf-login-msg" style="margin-top:8px;color:#b32d2e;"></div>

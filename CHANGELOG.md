@@ -4,6 +4,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-11
+
+### Fixed
+
+- On the login screen, the "Log In" button overlapped the bottom of the "Sign in with a passkey" button. WordPress's login stylesheet floats primary buttons to the right, which collapsed the passkey button's container. It's now laid out as its own row, with the usual gap above Remember Me and Log In.
+
 ## [0.3.0] - 2026-10-10
 
 Makes passwordless sign-in work for users who have Two Factor turned on, and makes it follow its own settings: Off now means off, and only covered roles can use it. Also hardens the passkey verifier. Passwordless sign-in is still experimental and has not had an independent security audit.
@@ -60,6 +66,7 @@ First tagged release of Passkey First, a WordPress plugin that makes the passkey
 - Minimum WordPress version raised from 6.0 to 6.5, which plugin dependencies require.
 - Passkeys added for passwordless sign-in now count as enrolled for the "Require a passkey" policy.
 
-[Unreleased]: https://github.com/remymazmanian/wp-passkey-first/compare/v0.3.0...HEAD
+https://github.com/remymazmanian/wp-passkey-first/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/remymazmanian/wp-passkey-first/releases/tag/v0.3.1
 [0.3.0]: https://github.com/remymazmanian/wp-passkey-first/releases/tag/v0.3.0
 [0.2.0]: https://github.com/remymazmanian/wp-passkey-first/releases/tag/v0.2.0

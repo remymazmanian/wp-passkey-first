@@ -3,7 +3,7 @@
  * Plugin Name: Passkey First
  * Plugin URI: https://remymazmanian.com/
  * Description: Passkey-first two-factor policy for administrators. Coordinates the Two Factor plugin and its WebAuthn provider: makes the passkey the primary prompt, can require enrolment for chosen roles with a grace period, and can retire weaker fallbacks. Optional passwordless sign-in with passkeys.
- * Version: 0.3.0
+ * Version: 0.3.1
  * Requires at least: 6.5
  * Requires PHP: 7.4
  * Requires Plugins: two-factor, two-factor-provider-webauthn
@@ -31,7 +31,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'PF_VERSION', '0.3.0' );
+define( 'PF_VERSION', '0.3.1' );
 
 require_once __DIR__ . '/includes/class-pf-webauthn.php';
 require_once __DIR__ . '/includes/class-pf-passwordless.php';
