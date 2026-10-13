@@ -4,6 +4,8 @@
 
 Passkey-first two-factor policy for WordPress administrators, with optional passwordless sign-in.
 
+**Docs & setup:** [remymazmanian.com/passkey-first/](https://remymazmanian.com/passkey-first/) · [Setup walkthrough](https://remymazmanian.com/passkey-login-wordpress-guide/)
+
 WordPress already has good passkey support through two plugins: [Two Factor](https://wordpress.org/plugins/two-factor/) provides the 2FA framework, and [WebAuthn Provider for Two Factor](https://wordpress.org/plugins/two-factor-provider-webauthn/) adds passkeys as a method. Installed on their own they are two more entries in the plugin list and no policy. What neither provides is **policy**: nothing makes the passkey the default prompt, nothing requires an administrator to enrol one, and the weaker fallbacks stay enabled forever.
 
 This plugin is that policy layer: it decides *who must use what*, and the two plugins above keep creating and verifying two-factor passkeys. The one exception is the optional passwordless sign-in described below, which has its own small WebAuthn verifier and stores those passkeys on each user's account.
